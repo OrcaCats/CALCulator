@@ -1,0 +1,17 @@
+import customtkinter as ctk
+import numpy as np
+import matplotlib.pyplot as plt
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+from matplotlib.ticker import MultipleLocator
+import re
+
+ctk.set_appearance_mode("Dark")
+ctk.set_default_color_theme("blue")
+
+class Calculator(ctk.CTk):
+    def __init__(self):
+        super().__init__()
+        self.title("Graphing Calculator")
+        self.geometry("1000x650")
+        self.minsize(800, 500)
+        

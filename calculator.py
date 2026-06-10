@@ -71,6 +71,64 @@ class Calculator(ctk.CTk):
                                         command=self.add_equation_entry)
         self.add_eq_btn.grid(row=2, column=0, sticky="ew", padx=10, pady=10)
 
+        # Detail Slider Frame
+        self.slider_frame = ctk.CTkFrame(self.left_panel, fg_color="transparent")
+        self.slider_frame.grid(row=3, column=0, sticky="ew", padx=10, pady=5)
+        
+        self.slider_label = ctk.CTkLabel(self.slider_frame, text="Points: 400")
+        self.slider_label.pack(side="top", pady=(0, 5))
+        
+        self.detail_slider = ctk.CTkSlider(self.slider_frame, from_=50, to=1000, 
+                                           command=self.on_slider_change,
+                                           progress_color=self.op_color,
+                                           button_color=self.accent_color,
+                                           button_hover_color=self.accent_hover_color)
+        self.detail_slider.set(400)
+        self.detail_slider.pack(side="top", fill="x")
+
+        # Riemann Slider Frame
+        self.riemann_slider_frame = ctk.CTkFrame(self.left_panel, fg_color="transparent")
+        self.riemann_slider_frame.grid(row=4, column=0, sticky="ew", padx=10, pady=5)
+        
+        self.riemann_slider_label = ctk.CTkLabel(self.riemann_slider_frame, text="Riemann N: 10")
+        self.riemann_slider_label.pack(side="top", pady=(0, 5))
+        
+        self.riemann_slider = ctk.CTkSlider(self.riemann_slider_frame, from_=1, to=1000, 
+                                           command=self.on_riemann_slider_change,
+                                           progress_color=self.op_color,
+                                           button_color=self.accent_color,
+                                           button_hover_color=self.accent_hover_color)
+        self.riemann_slider.set(10)
+        self.riemann_slider.pack(side="top", fill="x")
+
+        # Rounded Value Toggle Frame
+        self.toggle_frame = ctk.CTkFrame(self.left_panel, fg_color="transparent")
+        self.toggle_frame.grid(row=5, column=0, sticky="ew", padx=10, pady=5)
+        
+        self.rounded_value_var = ctk.BooleanVar(value=False)
+        self.rounded_value_switch = ctk.CTkSwitch(self.toggle_frame, text="Rounded Numerical Value", 
+                                                  variable=self.rounded_value_var,
+                                                  command=self.replot, 
+                                                  progress_color=self.op_color,
+                                                  button_color=self.accent_color,
+                                                  button_hover_color=self.accent_hover_color)
+        self.rounded_value_switch.pack(side="left", padx=5)
+
+        # Deriv Slider Frame
+        self.deriv_slider_frame = ctk.CTkFrame(self.left_panel, fg_color="transparent")
+        self.deriv_slider_frame.grid(row=6, column=0, sticky="ew", padx=10, pady=5)
+        
+        self.deriv_slider_label = ctk.CTkLabel(self.deriv_slider_frame, text="Deriv Distance (h): 0.100")
+        self.deriv_slider_label.pack(side="top", pady=(0, 5))
+        
+        self.deriv_slider = ctk.CTkSlider(self.deriv_slider_frame, from_=0.001, to=2.0, 
+                                           command=self.on_deriv_slider_change,
+                                           progress_color=self.op_color,
+                                           button_color=self.accent_color,
+                                           button_hover_color=self.accent_hover_color)
+        self.deriv_slider.set(0.1)
+        self.deriv_slider.pack(side="top", fill="x")
+
         # --- Hovering Keyboard ---
         self.keyboard_visible = False
         self.keyboard_frame = ctk.CTkFrame(self, fg_color=("gray90", "gray20"), corner_radius=10, border_width=1, border_color=("gray70", "gray30"))
@@ -104,6 +162,18 @@ class Calculator(ctk.CTk):
         # Setup plot style
         self.replot()
 
+    def on_slider_change(self, value):
+        self.slider_label.configure(text=f"Points: {int(value)}")
+        self.replot()
+
+    def on_riemann_slider_change(self, value):
+        self.riemann_slider_label.configure(text=f"Riemann N: {int(value)}")
+        self.replot()
+
+    def on_deriv_slider_change(self, value):
+        self.deriv_slider_label.configure(text=f"Deriv Distance (h): {value:.3f}")
+        self.replot()
+
     def set_focused_entry(self, entry):
         self.focused_entry = entry
 
@@ -124,12 +194,25 @@ class Calculator(ctk.CTk):
         color_lbl.pack(side="left", padx=5)
         
         var = ctk.StringVar()
-        var.trace_add("write", lambda *args: self.replot())
         entry = ctk.CTkEntry(frame, textvariable=var, font=("Helvetica", 18), 
                              border_width=0, fg_color="transparent")
-        entry.pack(side="left", fill="x", expand=True, padx=5, pady=5)
+                             
+        def on_var_change(*args):
+            text = var.get()
+            new_text = re.sub(r'int\((.*?),\s*([^,]+?),\s*([^,)]+)\)', r'∫_\2^\3(\1)', text)
+            new_text = re.sub(r'deriv\((.*?),\s*([^,)]+)\)', r'd/dx(\1)|_\2', new_text)
+            if new_text != text:
+                var.set(new_text)
+                try:
+                    entry.icursor("end")
+                except:
+                    pass
+                return
+            self.replot()
+            
+        var.trace_add("write", on_var_change)
         
-        eq_dict = {'var': var, 'entry': entry, 'frame': frame, 'color': line_color}
+        eq_dict = {}
         
         entry.bind("<FocusIn>", lambda e, en=entry: self.set_focused_entry(en))
         
@@ -138,6 +221,13 @@ class Calculator(ctk.CTk):
                                 hover_color=("gray80", "gray30"),
                                 command=lambda eq=eq_dict: self.delete_equation(eq))
         del_btn.pack(side="right", padx=5)
+        
+        val_lbl = ctk.CTkLabel(frame, text="", font=("Helvetica", 12), text_color="gray60")
+        val_lbl.pack(side="right", padx=5)
+        
+        entry.pack(side="left", fill="x", expand=True, padx=5, pady=5)
+        
+        eq_dict.update({'var': var, 'entry': entry, 'frame': frame, 'color': line_color, 'val_lbl': val_lbl})
         
         self.equations.append(eq_dict)
         self.set_focused_entry(entry)
@@ -154,18 +244,18 @@ class Calculator(ctk.CTk):
         self.replot()
 
     def setup_keyboard(self):
-        for i in range(4):
+        for i in range(5):
             self.keyboard_frame.grid_columnconfigure(i, weight=1)
         for i in range(6):
             self.keyboard_frame.grid_rowconfigure(i, weight=1)
 
         buttons = [
-            ('x', 0, 0, 1), ('sin', 0, 1, 1), ('cos', 0, 2, 1), ('tan', 0, 3, 1),
-            ('7', 1, 0, 1), ('8', 1, 1, 1), ('9', 1, 2, 1), ('/', 1, 3, 1),
-            ('4', 2, 0, 1), ('5', 2, 1, 1), ('6', 2, 2, 1), ('*', 2, 3, 1),
-            ('1', 3, 0, 1), ('2', 3, 1, 1), ('3', 3, 2, 1), ('-', 3, 3, 1),
-            ('0', 4, 0, 1), ('.', 4, 1, 1), ('^', 4, 2, 1), ('+', 4, 3, 1),
-            ('C', 5, 0, 2), ('DEL', 5, 2, 2)
+            ('x', 0, 0, 1), ('y', 0, 1, 1), ('sin', 0, 2, 1), ('cos', 0, 3, 1), ('tan', 0, 4, 1),
+            ('7', 1, 0, 1), ('8', 1, 1, 1), ('9', 1, 2, 1), ('(', 1, 3, 1), (')', 1, 4, 1),
+            ('4', 2, 0, 1), ('5', 2, 1, 1), ('6', 2, 2, 1), ('*', 2, 3, 1), ('/', 2, 4, 1),
+            ('1', 3, 0, 1), ('2', 3, 1, 1), ('3', 3, 2, 1), ('+', 3, 3, 1), ('-', 3, 4, 1),
+            ('0', 4, 0, 1), (',', 4, 1, 1), ('.', 4, 2, 1), ('^', 4, 3, 1), ('=', 4, 4, 1),
+            ('C', 5, 0, 1), ('∫', 5, 1, 1), ('d/dx', 5, 2, 1), ('DEL', 5, 3, 2)
         ]
 
         for btn in buttons:
@@ -174,7 +264,7 @@ class Calculator(ctk.CTk):
             col = btn[2]
             colspan = btn[3] if len(btn) > 3 else 1
             
-            if text in ['/', '*', '-', '+', '^', 'sin', 'cos', 'tan', 'x']:
+            if text in ['/', '*', '-', '+', '^', 'sin', 'cos', 'tan', 'x', 'y', '(', ')', '=', '∫', 'd/dx', ',']:
                 fg = self.op_color
                 hover = self.op_hover_color
                 text_color = "white"
@@ -215,9 +305,14 @@ class Calculator(ctk.CTk):
             pos = entry.index("insert")
             if pos > 0:
                 entry.delete(pos - 1, pos)
-        elif char in ['sin', 'cos', 'tan']:
+        elif char in ['sin', 'cos', 'tan', '∫', 'd/dx']:
             pos = entry.index("insert")
-            entry.insert(pos, char + '(')
+            if char == '∫':
+                entry.insert(pos, 'int(')
+            elif char == 'd/dx':
+                entry.insert(pos, 'deriv(')
+            else:
+                entry.insert(pos, char + '(')
         else:
             pos = entry.index("insert")
             entry.insert(pos, char)
@@ -313,25 +408,221 @@ class Calculator(ctk.CTk):
         for spine in self.ax.spines.values():
             spine.set_edgecolor(fg_color)
 
-        x = np.linspace(self.current_xlim[0], self.current_xlim[1], 400)
+        N = int(self.detail_slider.get()) if hasattr(self, 'detail_slider') else 400
+        x_1d = np.linspace(self.current_xlim[0], self.current_xlim[1], N)
+        y_1d = np.linspace(self.current_ylim[0], self.current_ylim[1], N)
         
         allowed_names = {k: v for k, v in np.__dict__.items() if not k.startswith("__")}
-        allowed_names['x'] = x
         
         for eq_dict in self.equations:
             expr = eq_dict['var'].get().strip()
             if not expr:
+                if 'val_lbl' in eq_dict:
+                    eq_dict['val_lbl'].configure(text="")
                 continue
                 
-            expr = expr.replace('^', '**')
+            expr_lower = expr.lower()
+            
+            is_explicit_x = True
+            is_explicit_y = False
+            is_implicit = False
+            
+            lhs, rhs = 'y', expr_lower
+            if '=' in expr_lower:
+                parts = expr_lower.split('=', 1)
+                lhs = parts[0].strip()
+                rhs = parts[1].strip()
+                if not rhs:
+                    if 'val_lbl' in eq_dict:
+                        eq_dict['val_lbl'].configure(text="")
+                    continue
+            
+            # Check for derivative
+            deriv_match = re.match(r'^d/dx\((.*)\)\|_([^\|]+)$', rhs)
+            deriv_alt_match = re.match(r'^deriv\((.*),\s*([^,]+)\)$', rhs)
+            
+            if deriv_match or deriv_alt_match:
+                if deriv_match:
+                    func_str = deriv_match.group(1)
+                    a_str = deriv_match.group(2)
+                else:
+                    func_str = deriv_alt_match.group(1)
+                    a_str = deriv_alt_match.group(2)
+                
+                try:
+                    a_str = a_str.replace('^', '**')
+                    func_str = func_str.replace('^', '**')
+                    
+                    a = eval(a_str, {"__builtins__": {}}, allowed_names)
+                    if not isinstance(a, (int, float)):
+                        if 'val_lbl' in eq_dict:
+                            eq_dict['val_lbl'].configure(text="")
+                        continue
+                        
+                    h = float(self.deriv_slider.get()) if hasattr(self, 'deriv_slider') else 0.1
+                    
+                    # Plot the curve over the viewing window
+                    allowed_names['x'] = x_1d
+                    y_eval = eval(func_str, {"__builtins__": {}}, allowed_names)
+                    if isinstance(y_eval, (int, float)):
+                        y_eval = np.full_like(x_1d, y_eval, dtype=float)
+                    self.ax.plot(x_1d, y_eval, color=eq_dict['color'], linewidth=2)
+                    
+                    # Evaluate points
+                    allowed_names['x'] = a
+                    ya = eval(func_str, {"__builtins__": {}}, allowed_names)
+                    
+                    allowed_names['x'] = a + h
+                    yah = eval(func_str, {"__builtins__": {}}, allowed_names)
+                    
+                    # Draw points
+                    self.ax.scatter([a, a+h], [ya, yah], color=eq_dict['color'], zorder=5)
+                    
+                    # Draw secant line
+                    slope = (yah - ya) / h
+                    intercept = ya - slope * a
+                    y_secant = slope * x_1d + intercept
+                    self.ax.plot(x_1d, y_secant, color=eq_dict['color'], linestyle='--', linewidth=1.5, alpha=0.8)
+                    
+                    if hasattr(self, 'rounded_value_var') and self.rounded_value_var.get():
+                        # High accuracy central difference
+                        eps = 1e-6
+                        allowed_names['x'] = a + eps
+                        y_plus = eval(func_str, {"__builtins__": {}}, allowed_names)
+                        allowed_names['x'] = a - eps
+                        y_minus = eval(func_str, {"__builtins__": {}}, allowed_names)
+                        exact_slope = (y_plus - y_minus) / (2 * eps)
+                        if 'val_lbl' in eq_dict:
+                            eq_dict['val_lbl'].configure(text=f"d/dx ≈ {exact_slope:.3f}")
+                    else:
+                        if 'val_lbl' in eq_dict:
+                            eq_dict['val_lbl'].configure(text=f"Sec ≈ {slope:.4f}")
+                except Exception as e:
+                    if 'val_lbl' in eq_dict:
+                        eq_dict['val_lbl'].configure(text="Error")
+                continue
+
+            # Check for integral/Riemann sum
+            int_match = re.match(r'^int\((.+),\s*([^,]+),\s*([^,]+)\)$', rhs)
+            mathprint_match = re.match(r'^∫_([^\^]+)\^([^\(]+)\((.*)\)$', rhs)
+            
+            if int_match or mathprint_match:
+                if int_match:
+                    func_str = int_match.group(1)
+                    a_str = int_match.group(2)
+                    b_str = int_match.group(3)
+                else:
+                    a_str = mathprint_match.group(1)
+                    b_str = mathprint_match.group(2)
+                    func_str = mathprint_match.group(3)
+                
+                try:
+                    # Replace ^ with ** for power evaluation
+                    a_str = a_str.replace('^', '**')
+                    b_str = b_str.replace('^', '**')
+                    func_str = func_str.replace('^', '**')
+                    
+                    a = eval(a_str, {"__builtins__": {}}, allowed_names)
+                    b = eval(b_str, {"__builtins__": {}}, allowed_names)
+                    
+                    if not isinstance(a, (int, float)) or not isinstance(b, (int, float)):
+                        if 'val_lbl' in eq_dict:
+                            eq_dict['val_lbl'].configure(text="")
+                        continue
+                        
+                    riemann_N = int(self.riemann_slider.get()) if hasattr(self, 'riemann_slider') else 10
+                    
+                    # Plot the curve over the viewing window
+                    allowed_names['x'] = x_1d
+                    y_eval = eval(func_str, {"__builtins__": {}}, allowed_names)
+                    if isinstance(y_eval, (int, float)):
+                        y_eval = np.full_like(x_1d, y_eval, dtype=float)
+                    self.ax.plot(x_1d, y_eval, color=eq_dict['color'], linewidth=2)
+                    
+                    # Draw Riemann sum rectangles (Left)
+                    if riemann_N > 0:
+                        x_rects = np.linspace(a, b, riemann_N + 1)
+                        x_eval_pts = x_rects[:-1]
+                        dx = (b - a) / riemann_N
+                        
+                        allowed_names['x'] = x_eval_pts
+                        y_rects = eval(func_str, {"__builtins__": {}}, allowed_names)
+                        if isinstance(y_rects, (int, float)):
+                            y_rects = np.full_like(x_eval_pts, y_rects, dtype=float)
+                            
+                        edge_color = eq_dict['color'] if riemann_N <= 100 else 'none'
+                        self.ax.bar(x_eval_pts, y_rects, width=dx, align='edge', color=eq_dict['color'], alpha=0.4, edgecolor=edge_color)
+                        
+                        # Calculate Riemann sum value
+                        riemann_sum = np.sum(y_rects) * dx
+                        
+                        if hasattr(self, 'rounded_value_var') and self.rounded_value_var.get():
+                            # Numerical Integral with N = 10,000 (10k) rounded to 3 decimal places
+                            x_10k = np.linspace(a, b, 10001)
+                            x_eval_10k = x_10k[:-1]
+                            dx_10k = (b - a) / 10000
+                            allowed_names['x'] = x_eval_10k
+                            y_10k = eval(func_str, {"__builtins__": {}}, allowed_names)
+                            if isinstance(y_10k, (int, float)):
+                                y_10k = np.full_like(x_eval_10k, y_10k, dtype=float)
+                            riemann_sum_10k = np.sum(y_10k) * dx_10k
+                            if 'val_lbl' in eq_dict:
+                                eq_dict['val_lbl'].configure(text=f"Int ≈ {riemann_sum_10k:.3f}")
+                        else:
+                            # Standard Riemann sum value
+                            if 'val_lbl' in eq_dict:
+                                eq_dict['val_lbl'].configure(text=f"R ≈ {riemann_sum:.4f}")
+                except Exception as e:
+                    if 'val_lbl' in eq_dict:
+                        eq_dict['val_lbl'].configure(text="Error")
+                continue
+
+            if 'val_lbl' in eq_dict:
+                eq_dict['val_lbl'].configure(text="")
+                
+            # Replace ^ with ** for non-integral equations
+            lhs = lhs.replace('^', '**')
+            rhs = rhs.replace('^', '**')
+            
+            if lhs == 'y' or re.match(r'^[a-zA-Z_]\w*\(x\)$', lhs):
+                is_explicit_x = True
+                is_implicit = False
+            elif lhs == 'x' or re.match(r'^[a-zA-Z_]\w*\(y\)$', lhs):
+                is_explicit_x = False
+                is_explicit_y = True
+                is_implicit = False
+            else:
+                is_implicit = True
+                is_explicit_x = False
             
             try:
-                y = eval(expr, {"__builtins__": {}}, allowed_names)
-                if isinstance(y, (int, float)):
-                    y = np.full_like(x, y, dtype=float)
-                
-                self.ax.plot(x, y, color=eq_dict['color'], linewidth=2)
-            except Exception:
+                if is_explicit_x:
+                    allowed_names['x'] = x_1d
+                    allowed_names['y'] = y_1d
+                    y_eval = eval(rhs, {"__builtins__": {}}, allowed_names)
+                    if isinstance(y_eval, (int, float)):
+                        y_eval = np.full_like(x_1d, y_eval, dtype=float)
+                    self.ax.plot(x_1d, y_eval, color=eq_dict['color'], linewidth=2)
+                elif is_explicit_y:
+                    allowed_names['x'] = x_1d
+                    allowed_names['y'] = y_1d
+                    x_eval = eval(rhs, {"__builtins__": {}}, allowed_names)
+                    if isinstance(x_eval, (int, float)):
+                        x_eval = np.full_like(y_1d, x_eval, dtype=float)
+                    self.ax.plot(x_eval, y_1d, color=eq_dict['color'], linewidth=2)
+                elif is_implicit:
+                    X, Y = np.meshgrid(x_1d, y_1d)
+                    allowed_names['x'] = X
+                    allowed_names['y'] = Y
+                    z_lhs = eval(lhs, {"__builtins__": {}}, allowed_names)
+                    z_rhs = eval(rhs, {"__builtins__": {}}, allowed_names)
+                    
+                    if isinstance(z_lhs, (int, float)): z_lhs = np.full_like(X, z_lhs, dtype=float)
+                    if isinstance(z_rhs, (int, float)): z_rhs = np.full_like(X, z_rhs, dtype=float)
+                    
+                    Z = z_lhs - z_rhs
+                    self.ax.contour(X, Y, Z, levels=[0], colors=[eq_dict['color']], linewidths=2)
+            except Exception as e:
                 pass 
                 
         self.ax.set_xlim(self.current_xlim)
