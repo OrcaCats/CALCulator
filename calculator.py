@@ -118,15 +118,15 @@ class Calculator(ctk.CTk):
         self.deriv_slider_frame = ctk.CTkFrame(self.left_panel, fg_color="transparent")
         self.deriv_slider_frame.grid(row=6, column=0, sticky="ew", padx=10, pady=5)
         
-        self.deriv_slider_label = ctk.CTkLabel(self.deriv_slider_frame, text="Deriv Distance (h): 0.100")
+        self.deriv_slider_label = ctk.CTkLabel(self.deriv_slider_frame, text="Deriv Distance (h): 1.0000")
         self.deriv_slider_label.pack(side="top", pady=(0, 5))
         
-        self.deriv_slider = ctk.CTkSlider(self.deriv_slider_frame, from_=0.001, to=2.0, 
+        self.deriv_slider = ctk.CTkSlider(self.deriv_slider_frame, from_=0, to=6, 
                                            command=self.on_deriv_slider_change,
                                            progress_color=self.op_color,
                                            button_color=self.accent_color,
                                            button_hover_color=self.accent_hover_color)
-        self.deriv_slider.set(0.1)
+        self.deriv_slider.set(0)
         self.deriv_slider.pack(side="top", fill="x")
 
         # --- Hovering Keyboard ---
@@ -171,7 +171,11 @@ class Calculator(ctk.CTk):
         self.replot()
 
     def on_deriv_slider_change(self, value):
-        self.deriv_slider_label.configure(text=f"Deriv Distance (h): {value:.3f}")
+        h = 10 ** (-value)
+        if h < 0.001:
+            self.deriv_slider_label.configure(text=f"Deriv Distance (h): {h:.1e}")
+        else:
+            self.deriv_slider_label.configure(text=f"Deriv Distance (h): {h:.4f}")
         self.replot()
 
     def set_focused_entry(self, entry):
@@ -414,6 +418,31 @@ class Calculator(ctk.CTk):
         
         allowed_names = {k: v for k, v in np.__dict__.items() if not k.startswith("__")}
         
+        # First pass: register custom functions so they can be reused across equations
+        custom_functions = {}
+        for eq_dict in self.equations:
+            expr = eq_dict['var'].get().strip().lower()
+            if not expr: continue
+            if '=' in expr:
+                parts = expr.split('=', 1)
+                lhs = parts[0].strip()
+                rhs = parts[1].strip()
+                match = re.match(r'^([a-zA-Z_]\w*)\(([a-zA-Z_]\w*)\)$', lhs)
+                if match:
+                    func_name = match.group(1)
+                    var_name = match.group(2)
+                    rhs_py = rhs.replace('^', '**')
+                    def make_func(expression, variable):
+                        def f(val):
+                            local_names = allowed_names.copy()
+                            local_names.update(custom_functions)
+                            local_names[variable] = val
+                            return eval(expression, {"__builtins__": {}}, local_names)
+                        return f
+                    custom_functions[func_name] = make_func(rhs_py, var_name)
+                    
+        allowed_names.update(custom_functions)
+        
         for eq_dict in self.equations:
             expr = eq_dict['var'].get().strip()
             if not expr:
@@ -459,7 +488,8 @@ class Calculator(ctk.CTk):
                             eq_dict['val_lbl'].configure(text="")
                         continue
                         
-                    h = float(self.deriv_slider.get()) if hasattr(self, 'deriv_slider') else 0.1
+                    h_val = float(self.deriv_slider.get()) if hasattr(self, 'deriv_slider') else 0.0
+                    h = 10 ** (-h_val)
                     
                     # Plot the curve over the viewing window
                     allowed_names['x'] = x_1d
