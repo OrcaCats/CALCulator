@@ -417,6 +417,8 @@ class Calculator(ctk.CTk):
         y_1d = np.linspace(self.current_ylim[0], self.current_ylim[1], N)
         
         allowed_names = {k: v for k, v in np.__dict__.items() if not k.startswith("__")}
+        allowed_names['ln'] = np.log
+        allowed_names['log'] = np.log10
         
         # First pass: register custom functions so they can be reused across equations
         custom_functions = {}

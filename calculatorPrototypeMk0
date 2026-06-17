@@ -14,4 +14,12 @@ class Calculator(ctk.CTk):
         self.title("Graphing Calculator")
         self.geometry("1000x650")
         self.minsize(800, 500)
-        
+    
+    def mainloop(self):
+        super().mainloop()
+
+    def
+
+if __name__ == "__main__":
+    app = Calculator()
+    app.mainloop()
